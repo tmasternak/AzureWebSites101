@@ -36,15 +36,68 @@ param
 
     [Parameter(Mandatory = $false)]
     [Switch]
-    $SendHostMessagesToOutput = $false
+    $SendHostMessagesToOutput = $false,
+
+	[Parameter(Mandatory = $true)]
+    [String]
+    $Slot,
+
+	[Parameter(Mandatory = $false)]
+    [ValidateScript({Test-Path $_ -PathType Leaf})]
+    [String]
+    $ProjectFile
 )
 
+function Get-MSBuildCmd
+{
+        process
+        {
+
+             $path =  Get-ChildItem "HKLM:\SOFTWARE\Microsoft\MSBuild\ToolsVersions\" | 
+                                   Sort-Object {[double]$_.PSChildName} -Descending | 
+                                   Select-Object -First 1 | 
+                                   Get-ItemProperty -Name MSBuildToolsPath |
+                                   Select -ExpandProperty MSBuildToolsPath
+        
+            $path = (Join-Path -Path $path -ChildPath 'msbuild.exe')
+
+        return Get-Item $path
+    }
+} 
 
 function New-WebDeployPackage
 {
     #Write a function to build and package your web application
 
-    #To build your web application, use MsBuild.exe. For help, see MSBuild Command-Line Reference at: http://go.microsoft.com/fwlink/?LinkId=391339
+    #To build your web application, use MsBuild.exe. For help, see MSBuild Command-Line Reference at: http://go.microsoft.com/fwlink/?LinkId=
+
+	Write-VerboseWithTime 'Build-WebDeployPackage: Start'
+    
+    $msbuildCmd = '"{0}" "{1}" /T:Rebuild;Package /P:VisualStudioVersion=12.0 /p:OutputPath="{2}\MSBuildOutputPath" /flp:logfile=msbuild.log,v=d' -f (Get-MSBuildCmd), $ProjectFile, $scriptDirectory
+       
+    Write-VerboseWithTime ('Build-WebDeployPackage: ' + $msbuildCmd)
+       
+    #Start execution of the build command
+    $job = Start-Process cmd.exe -ArgumentList('/C "' + $msbuildCmd + '"') -WindowStyle Normal -Wait -PassThru
+       
+    if ($job.ExitCode -ne 0)
+    {
+        throw('MsBuild exited with an error. ExitCode:' + $job.ExitCode)
+    }
+       
+    #Obtain the project name
+    $projectName = (Get-Item $ProjectFile).BaseName
+       
+    #Construct the path to web deploy zip package
+    $DeployPackageDir =  '.\MSBuildOutputPath\_PublishedWebsites\{0}_Package\{0}.zip' -f $projectName
+       
+       
+    #Get the full path for the web deploy zip package. This is required for MSDeploy to work
+    $WebDeployPackage = Resolve-Path –LiteralPath $DeployPackageDir
+       
+    Write-VerboseWithTime 'Build-WebDeployPackage: End'
+       
+    return $WebDeployPackage
 }
 
 function Test-WebApplication
@@ -101,7 +154,11 @@ function Publish-AzureWebApplicationToWebsite
         [Parameter(Mandatory = $true)]
         [ValidateScript({Test-Path $_ -PathType Leaf})]
         [String]
-        $WebDeployPackage
+        $WebDeployPackage,
+
+		[Parameter(Mandatory = $true)]
+        [String]
+        $Slot
     )
 
     if ($ConnectionString -and $ConnectionString.Count -gt 0)
@@ -109,13 +166,18 @@ function Publish-AzureWebApplicationToWebsite
         Publish-AzureWebsiteProject `
             -Name $Config.name `
             -Package $WebDeployPackage `
-            -ConnectionString $ConnectionString
+            -ConnectionString $ConnectionString `
+			-Slot $Slot
+
     }
     else
     {
+		Write-VerboseWithTime ('{0} $WebDeployPackage is set to {1}' -f $scriptName, $WebDeployPackage)
+
         Publish-AzureWebsiteProject `
             -Name $Config.name `
-            -Package $WebDeployPackage
+            -Package $WebDeployPackage `
+			-Slot $Slot
     }
 }
 
@@ -178,7 +240,9 @@ try
     $Config = Read-ConfigFile $Configuration 
 
     #Build and package your web application
-    New-WebDeployPackage
+	if($ProjectFile){
+		$WebDeployPackage = New-WebDeployPackage
+	}
 
     #Run unit tests on your web application
     Test-WebApplication
@@ -192,7 +256,8 @@ try
         Publish-AzureWebApplicationToWebsite `
             -Configuration $Config `
             -ConnectionString $newEnvironmentResult.ConnectionString `
-            -WebDeployPackage $WebDeployPackage
+            -WebDeployPackage $WebDeployPackage `
+			-Slot $Slot
     }
 }
 finally

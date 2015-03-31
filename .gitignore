@@ -2,3 +2,6 @@ AzureWebsite101/*.suo
 AzureWebsite101/AzureWebsite101/bin/*.*
 AzureWebsite101/packages/
 AzureWebsite101/AzureWebsite101/obj/
+AzureWebsite101/PublishScripts/MSBuildOutputPath/Antlr3.Runtime.dll
+AzureWebsite101/PublishScripts/MSBuildOutputPath/
+AzureWebsite101/PublishScripts/msbuild.log,v
