@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Web;
 using System.Web.Mvc;
+using log4net;
 
 namespace AzureWebsite101.Controllers
 {
@@ -10,6 +12,10 @@ namespace AzureWebsite101.Controllers
     {
         public ActionResult Index()
         {
+            var logger = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+
+            logger.Info("Hello from index");
+
             return View();
         }
 

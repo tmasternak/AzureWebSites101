@@ -12,6 +12,8 @@ namespace AzureWebsite101
     {
         protected void Application_Start()
         {
+            log4net.Config.XmlConfigurator.Configure();
+
             AreaRegistration.RegisterAllAreas();
             FilterConfig.RegisterGlobalFilters(GlobalFilters.Filters);
             RouteConfig.RegisterRoutes(RouteTable.Routes);
