@@ -7,7 +7,7 @@ $Script:originalCurrentSubscription = $null
 
 # A variable to save original storage account.
 $Script:originalCurrentStorageAccount = $null
-
+    
 # A variable to save storage account of user specified subscription.
 $Script:originalStorageAccountOfUserSpecifiedSubscription = $null
 
